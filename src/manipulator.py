@@ -224,10 +224,111 @@ class Manipulator2D():
         plt.tight_layout()
         plt.show()
 
+    # Inverse Kinematics for fixed end-effector orientation
+    def inverseKinematics(self, position, phi=0.0):
+        x, y = position
+        L1, L2, L3 = self.LinkLengths
+
+        # Compute wrist position
+        x_wrist = x - L3 * np.cos(phi)
+        y_wrist = y - L3 * np.sin(phi)
+
+        # Distance from origin to wrist
+        r = np.hypot(x_wrist, y_wrist)
+
+        # Check reachability
+        if r > (L1 + L2) or r < abs(L1 - L2):
+            print("Target not reachable")
+            return None
+
+        # Inverse Kinematics Calculation for q1 and q2
+        # Law of Cosines for q2
+        cos_q2 = (r**2 - L1**2 - L2**2) / (2 * L1 * L2)
+        sin_q2_pos = np.sqrt(1 - cos_q2**2)
+        sin_q2_neg = -sin_q2_pos
+
+        q2_options = [np.arctan2(sin_q2_pos, cos_q2), np.arctan2(sin_q2_neg, cos_q2)]
+        solutions = []
+
+        for q2 in q2_options:
+            # k1, k2 are the intermediate link values
+            k1 = L1 + L2 * np.cos(q2)
+            k2 = L2 * np.sin(q2)
+
+            q1 = np.arctan2(y_wrist, x_wrist) - np.arctan2(k2, k1)
+            q3 = phi - q1 - q2
+
+            # Normalize angles to [-pi, pi]
+            q1 = np.arctan2(np.sin(q1), np.cos(q1))
+            q2 = np.arctan2(np.sin(q2), np.cos(q2))
+            q3 = np.arctan2(np.sin(q3), np.cos(q3))
+
+            solutions.append([q1, q2, q3])
+
+        return solutions
+
+    # Simulate motion between poses. firstPath value forces return of only one path
+    def motionPlanner(self, poseA, poseB, phiA = 0.0, phiB =0.0, firstPath=False):
+        # Obtain IK for pointA and pointB
+        ik_poseA = self.inverseKinematics(poseA, phiA)
+        ik_poseB = self.inverseKinematics(poseB, phiB)
+
+        valid_paths = []
+        for configA in ik_poseA:
+            for configB in ik_poseB:
+                # Transform joint angles to discretized values
+                discreteA = [self.getIndexFromAngle(configA[0]),
+                             self.getIndexFromAngle(configA[1]),
+                             self.getIndexFromAngle(configA[2])]
+                
+                discreteB = [self.getIndexFromAngle(configA[0]),
+                             self.getIndexFromAngle(configA[1]),
+                             self.getIndexFromAngle(configA[2])]
+                
+                # Run A-star algorithm to determine if there is a valid path between the two
+                path = self.planPathAStar(discreteA, discreteB)
+
+                if path and firstPath:
+                    return path
+                
+                valid_paths.append(path)
+        
+        return valid_paths
+    
+    # A* Algorithm for finding paths between two points
+    def planPathAStar(self, ConfigA, ConfigB):
+        start_pos = ConfigA
+        end_pos = ConfigB
+
+        class Node:
+            def __init__(self, position, parent=None, cost=0, h=100000):
+                self.position = position
+                self.cost = cost
+                self.heuristic = h 
+                self.total_cost = self.cost + self.heuristic
+                self.parent = parent
+
+            def generateNeighbors(self, map):
+                for dx in [-1, 0, 1]:
+                    for dy in [-1, 0, 1]:
+                        for dz in [-1, 0, 1]:
+                            if dx == 0 and dy == 0 and dz == 0:
+                                continue
+                            neighbor = (self.position[0] + dx, self.position[1] + dy, self.position[2] + dz)
+                pass
+        
+        def heuristic(currNode):
+            x_curr, y_curr, z_curr = currNode.position
+            x_fin, y_fin, z_fin = end_pos
+
+            return abs(x_fin - x_curr) + abs(y_fin - y_curr) + abs(z_fin - z_curr)
+
 robot = Manipulator2D()
-print("Current Info: ", robot.currentQ, robot.currentPos)
-firstCircle = Obstacle((1.5, 1.5), 0.25)
-robot.addObstacle(firstCircle)
-robot.generateCSpace()
-robot.plotCSpace()
-robot.plotRobot()
+target = (2.0, 1.5)  # Some reachable point
+phi = np.pi/4   # Desired end-effector orientation
+
+ik_solutions = robot.inverseKinematics(target, phi)
+if ik_solutions:
+    for solution in ik_solutions:
+        robot.updatePositions(solution)
+        robot.plotRobot()
