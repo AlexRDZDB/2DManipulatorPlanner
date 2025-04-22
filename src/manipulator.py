@@ -12,6 +12,8 @@ Attributes:
 import numpy as np
 import matplotlib.pyplot as plt
 
+from obstacle import Obstacle
+
 class Manipulator2D():
     
     def __init__(self, LinkLengths = (1.0, 1.0, 1.0), name = "2DManipulator", res = 35):
@@ -65,7 +67,6 @@ class Manipulator2D():
             position = (T[0, 2], T[1, 2])
             positions.append(position)
         
-        print(positions)
         return positions
     
     # Function to update robot positions according to new input angles
@@ -88,6 +89,16 @@ class Manipulator2D():
         # Plot links
         ax.plot(x_coords, y_coords, color=color, linewidth=3, marker='o', markerfacecolor="black")
         
+        # Plot obstacles
+        for obstacle in self.obstacles:
+            print(f"Origin: {obstacle.center}")
+            origin = obstacle.center
+            radius = obstacle.radius
+            obstacle_plot = plt.Circle(origin, radius, color ='red', fill=True) # Plots the Circle
+            obstacle_border = plt.Circle(origin, radius, color="black", fill=False, linewidth=1.5) # Plots the Stroke
+            ax.add_patch(obstacle_plot)
+            ax.add_patch(obstacle_border)
+        
         total_length = sum(self.LinkLengths)
         reach_circle = plt.Circle(self.origin, total_length, color='gray', fill=False, linestyle='dotted', linewidth=1.5)
         ax.add_patch(reach_circle)
@@ -104,6 +115,119 @@ class Manipulator2D():
 
         plt.show()
 
+    # Function to generate the robot's configuration space according to the obstacles in it
+    def generateCSpace(self):
+        for i, q1 in enumerate(self.discretizedAngles):
+            q = [q1, 0, 0]
+
+            if self.checkCollision(q, 1):
+                self.cspace[i,:,:] = 1
+            
+            else:
+                for j, q2 in enumerate(self.discretizedAngles):
+                    q = [q1, q2, 0]
+                    if self.checkCollision(q, 2):
+                        self.cspace[i,j,:] = 1
+                    else:
+                        for k, q3 in enumerate(self.discretizedAngles):
+                            q = [q1,q2,q3]
+                            if self.checkCollision(q, 3):
+                                self.cspace[i,j,k] = 1
+    
+    # Given a set of angles q, check if there are any collisions with obstacles
+    def checkCollision(self, q, linkNo):
+        positions = self.forwardKinematics(q) # Obtain joint position
+
+        for i in range(len(positions) - 1):
+            if i == linkNo:
+                return False
+            
+            start = positions[i] # Load two consecutive joint positions
+            end = positions[i + 1]
+            # Check if there is collision with obstacles
+            for obstacle in self.obstacles:
+                if self.intersectsObstacle(start, end, obstacle):
+                    return True
+        
+        return False
+    
+    # Check whether a given link intersects the obstacle at any point
+    def intersectsObstacle(self, start, end, obstacle):
+        center = np.array(obstacle.center)
+        radius = obstacle.radius
+
+        # Convert points to numpy arrays for vector operations
+        start = np.array(start)
+        end = np.array(end)
+
+        # Establish vector from start to end
+        direction = end - start 
+        
+        # Vector from circle center to the start point
+        f = start - center
+
+        # Coefficients for quadratic equation
+        a = np.dot(direction, direction)
+        b = 2 * np.dot(f,direction)
+        c = np.dot(f,f) - radius**2
+
+        # Compute discriminant
+        discriminant = b**2 - 4*a*c
+
+        if discriminant < 0:
+            # No real roots: line doesn't intersect circle
+            return False
+        else:
+            # Compute the two roots (quadratic formula)
+            discriminant_sqrt = np.sqrt(discriminant)
+
+            t1 = (-b - discriminant_sqrt) / (2 * a)
+            t2 = (-b + discriminant_sqrt) / (2 * a)
+
+            # Check if either root lies within the segment bounds [0, 1]
+            if (0 <= t1 <= 1) or (0 <= t2 <= 1):
+                return True
+
+            return False
+
+    # Function to add new obstacles to the working space
+    def addObstacle(self, obstacle):
+        self.obstacles.append(obstacle)
+
+    # Plot CSpace
+    def plotCSpace(self):
+        fig = plt.figure(figsize=(10,8))
+        ax = fig.add_subplot(111, projection='3d')
+
+        filled = self.cspace.astype(bool)
+
+        colors = np.empty(self.cspace.shape, dtype=object)
+        colors[self.cspace == 1] = 'red'
+        colors[self.cspace == 0] = 'none'
+
+        ax.voxels(filled, facecolors=colors, edgecolor='k', linewidth=0.2)
+
+        # Use actual angle values as ticks (limit to avoid clutter)
+        tick_indices = np.linspace(0, len(self.discretizedAngles) - 1, 5, dtype=int)
+        angle_ticks = np.round(self.discretizedAngles[tick_indices], 2)
+
+        ax.set_xticks(tick_indices)
+        ax.set_xticklabels(angle_ticks)
+        ax.set_yticks(tick_indices)
+        ax.set_yticklabels(angle_ticks)
+        ax.set_zticks(tick_indices)
+        ax.set_zticklabels(angle_ticks)
+        ax.set_xlabel("Joint 1")
+        ax.set_ylabel("Joint 2")
+        ax.set_zlabel("Joint 3")
+
+        plt.tight_layout()
+        plt.show()
+
 robot = Manipulator2D()
 print("Current Info: ", robot.currentQ, robot.currentPos)
+firstCircle = Obstacle((1.5, 1.5), 0.25)
+robot.addObstacle(firstCircle)
+robot.generateCSpace()
+robot.plotCSpace()
 robot.plotRobot()
