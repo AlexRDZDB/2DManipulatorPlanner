@@ -78,7 +78,6 @@ def computeAStar(startPoint, endPoint, map, res):
             if neighbor.position in nodesToCheck and nodesToCheck[neighbor.position] <= neighbor.total_cost:
                 continue
             
-            print(f"Added {neighbor.position}")
             nodesToCheck[neighbor.position] = neighbor.total_cost
             heapq.heappush(openList, neighbor)
     

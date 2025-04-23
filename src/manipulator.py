@@ -283,14 +283,10 @@ class Manipulator2D():
                              self.getIndexFromAngle(configA[1]),
                              self.getIndexFromAngle(configA[2])]
                 
-                print(f"Discrete A: {discreteA}")
-
                 discreteB = [self.getIndexFromAngle(configB[0]),
                              self.getIndexFromAngle(configB[1]),
                              self.getIndexFromAngle(configB[2])]
-                
-                print(f"Discrete B: {discreteB}")
-                
+                                
                 # Run A-star algorithm to determine if there is a valid path between the two
                 path = computeAStar(discreteA, discreteB, self.cspace, self.res)
 
@@ -302,15 +298,90 @@ class Manipulator2D():
         return valid_paths
     
     # Animate a motion
-    def animateTrajectory(self, path):
-        pass
+    def animateRobot(self, path, interval=250):
+        fig, ax = plt.subplots()
 
+        start_point = path[0]
+        end_point = path[-1]
+
+        start_angles = [self.discretizedAngles[start_point[0]],
+                        self.discretizedAngles[start_point[1]],
+                        self.discretizedAngles[start_point[2]]]
+        
+        end_angles = [self.discretizedAngles[end_point[0]],
+                    self.discretizedAngles[end_point[1]],
+                    self.discretizedAngles[end_point[2]]]
+        
+        start_config = self.forwardKinematics(start_angles)
+        end_config = self.forwardKinematics(end_angles)
+
+
+        ax.set_xlim(-sum(self.LinkLengths) - 1, sum(self.LinkLengths) + 1)
+        ax.set_ylim(-sum(self.LinkLengths) - 1, sum(self.LinkLengths) + 1)
+        ax.set_aspect('equal')
+        ax.grid(True)
+        ax.set_xlabel('X')
+        ax.set_ylabel('Y')
+
+        line, = ax.plot([], [], color="blue", marker="o",markersize=6,lw=3)
+        reach_circle = plt.Circle((0,0), sum(self.LinkLengths), color="gray", fill=False, linestyle='dotted', linewidth=1.5)
+        ax.add_patch(reach_circle)
+
+        start_circle = plt.Circle((start_config[-1]), 0.125, color = "green", fill=False, linewidth = 1.5)
+        end_circle = plt.Circle((end_config[-1]), 0.125, color = "darkgreen", fill=True, linewidth = 1.5)
+
+        ax.add_patch(start_circle)
+        ax.add_patch(end_circle)
+
+            # Plot obstacles once
+        for obstacle in self.obstacles:
+            origin = obstacle.center
+            radius = obstacle.radius
+            obstacle_plot = plt.Circle(origin, radius, color='red', fill=True)
+            obstacle_border = plt.Circle(origin, radius, color="black", fill=False, linewidth=1.5)
+            ax.add_patch(obstacle_plot)
+            ax.add_patch(obstacle_border)
+
+        def init():
+            line.set_data([], [])
+            return line,
+    
+        def update(frame):
+            
+            angles = [self.discretizedAngles[frame[0]],
+                    self.discretizedAngles[frame[1]],
+                    self.discretizedAngles[frame[2]]]
+            
+            self.updatePositions(angles)
+
+            positions = self.forwardKinematics()
+
+            x_coords = [p[0] for p in positions]
+            y_coords = [p[1] for p in positions]
+
+            line.set_data(x_coords, y_coords)
+            return line,
+
+        
+        anim = animation.FuncAnimation(
+            fig, update, frames=path, init_func=init,
+            interval=interval, blit=True, repeat=False
+            )
+        
+        plt.show()
+        
 robot = Manipulator2D()
-start = (2.0, 1.5)  # Some reachable point
-phi_start = np.pi/4   # Desired end-effector orientation
+start = (0.0, 3.0)  # Some reachable point
+phi_start = np.pi/2  # Desired end-effector orientation
 
 end = (3.0, 0.0)
 phi_end = 0.0
+circ = Obstacle((1.5, 1.0), 0.5)
+robot.addObstacle(circ)
+circ = Obstacle((1.5, -0.5), 0.25)
+robot.addObstacle(circ)
+robot.generateCSpace()
 
 paths = robot.motionPlanner(start, end, phi_start, phi_end, True)
-print(paths)
+
+robot.animateRobot(paths)
