@@ -26,19 +26,21 @@ class Node:
 
         x,y,z = self.position
 
-        for dx, dy, dz in directions:
-            nx, ny, nz = x + dx, y + dy, z + dz
-
-            if 0 <= nx < res and 0 <= ny < res and 0 <= nz < res:
-                if map[nx][ny][nz] == 0:
-                    neighbor_node = Node(
-                        position=(nx,ny,nz),
-                        h = ManhattanDistance((nx,ny,nz), target),
-                        cost = self.cost + 1,
-                        parent = self
-                    )
-                    neighbors.append(neighbor_node)
-        
+        for dx in [-1, 0, 1]:
+            for dy in [-1, 0, 1]:
+                for dz in [-1, 0, 1]:
+                    nx, ny, nz = x + dx, y + dy, z + dz
+                    
+                    if 0 <= nx < res and 0 <= ny < res and 0 <= nz < res:
+                        if map[nx][ny][nz] == 0:
+                            neighbor_node = Node(
+                                position=(nx,ny,nz),
+                                h = ManhattanDistance((nx,ny,nz), target),
+                                cost = self.cost + 1,
+                                parent = self
+                            )
+                            neighbors.append(neighbor_node)
+                
         return neighbors
 
 def computeAStar(startPoint, endPoint, map, res):

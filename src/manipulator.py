@@ -388,4 +388,4 @@ robot.generateCSpace()
 
 paths = robot.motionPlanner(start, end, phi_start, phi_end, True)
 
-robot.animateRobot(paths, save=True)
+robot.animateRobot(paths)
