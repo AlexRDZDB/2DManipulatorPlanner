@@ -12,6 +12,7 @@ Attributes:
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+from matplotlib.animation import PillowWriter
 
 from obstacle import Obstacle
 from AStar import computeAStar
@@ -298,7 +299,7 @@ class Manipulator2D():
         return valid_paths
     
     # Animate a motion
-    def animateRobot(self, path, interval=250):
+    def animateRobot(self, path, interval=250, save=False):
         fig, ax = plt.subplots()
 
         start_point = path[0]
@@ -365,11 +366,14 @@ class Manipulator2D():
         
         anim = animation.FuncAnimation(
             fig, update, frames=path, init_func=init,
-            interval=interval, blit=True, repeat=False
+            interval=interval, blit=False, repeat=False
             )
+        if save:
+            writer = PillowWriter(fps=1000 // interval)
+            anim.save("robot_motion.gif", writer=writer)
         
         plt.show()
-        
+    
 robot = Manipulator2D()
 start = (0.0, 3.0)  # Some reachable point
 phi_start = np.pi/2  # Desired end-effector orientation
@@ -384,4 +388,4 @@ robot.generateCSpace()
 
 paths = robot.motionPlanner(start, end, phi_start, phi_end, True)
 
-robot.animateRobot(paths)
+robot.animateRobot(paths, save=True)
