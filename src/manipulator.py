@@ -11,8 +11,10 @@ Attributes:
 '''
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.animation as animation
 
 from obstacle import Obstacle
+from AStar import computeAStar
 
 class Manipulator2D():
     
@@ -281,12 +283,16 @@ class Manipulator2D():
                              self.getIndexFromAngle(configA[1]),
                              self.getIndexFromAngle(configA[2])]
                 
-                discreteB = [self.getIndexFromAngle(configA[0]),
-                             self.getIndexFromAngle(configA[1]),
-                             self.getIndexFromAngle(configA[2])]
+                print(f"Discrete A: {discreteA}")
+
+                discreteB = [self.getIndexFromAngle(configB[0]),
+                             self.getIndexFromAngle(configB[1]),
+                             self.getIndexFromAngle(configB[2])]
+                
+                print(f"Discrete B: {discreteB}")
                 
                 # Run A-star algorithm to determine if there is a valid path between the two
-                path = self.planPathAStar(discreteA, discreteB)
+                path = computeAStar(discreteA, discreteB, self.cspace, self.res)
 
                 if path and firstPath:
                     return path
@@ -295,40 +301,16 @@ class Manipulator2D():
         
         return valid_paths
     
-    # A* Algorithm for finding paths between two points
-    def planPathAStar(self, ConfigA, ConfigB):
-        start_pos = ConfigA
-        end_pos = ConfigB
-
-        class Node:
-            def __init__(self, position, parent=None, cost=0, h=100000):
-                self.position = position
-                self.cost = cost
-                self.heuristic = h 
-                self.total_cost = self.cost + self.heuristic
-                self.parent = parent
-
-            def generateNeighbors(self, map):
-                for dx in [-1, 0, 1]:
-                    for dy in [-1, 0, 1]:
-                        for dz in [-1, 0, 1]:
-                            if dx == 0 and dy == 0 and dz == 0:
-                                continue
-                            neighbor = (self.position[0] + dx, self.position[1] + dy, self.position[2] + dz)
-                pass
-        
-        def heuristic(currNode):
-            x_curr, y_curr, z_curr = currNode.position
-            x_fin, y_fin, z_fin = end_pos
-
-            return abs(x_fin - x_curr) + abs(y_fin - y_curr) + abs(z_fin - z_curr)
+    # Animate a motion
+    def animateTrajectory(self, path):
+        pass
 
 robot = Manipulator2D()
-target = (2.0, 1.5)  # Some reachable point
-phi = np.pi/4   # Desired end-effector orientation
+start = (2.0, 1.5)  # Some reachable point
+phi_start = np.pi/4   # Desired end-effector orientation
 
-ik_solutions = robot.inverseKinematics(target, phi)
-if ik_solutions:
-    for solution in ik_solutions:
-        robot.updatePositions(solution)
-        robot.plotRobot()
+end = (3.0, 0.0)
+phi_end = 0.0
+
+paths = robot.motionPlanner(start, end, phi_start, phi_end, True)
+print(paths)
