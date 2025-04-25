@@ -119,26 +119,26 @@ class Manipulator2D():
         plt.show()
 
     # Function to generate the robot's configuration space according to the obstacles in it
-    def generateCSpace(self):
+    def generateCSpace(self, offset=0):
         for i, q1 in enumerate(self.discretizedAngles):
             q = [q1, 0, 0]
 
-            if self.checkCollision(q, 1):
+            if self.checkCollision(q, 1, offset=offset):
                 self.cspace[i,:,:] = 1
             
             else:
                 for j, q2 in enumerate(self.discretizedAngles):
                     q = [q1, q2, 0]
-                    if self.checkCollision(q, 2):
+                    if self.checkCollision(q, 2, offset=offset):
                         self.cspace[i,j,:] = 1
                     else:
                         for k, q3 in enumerate(self.discretizedAngles):
                             q = [q1,q2,q3]
-                            if self.checkCollision(q, 3):
+                            if self.checkCollision(q, 3, offset=offset):
                                 self.cspace[i,j,k] = 1
     
     # Given a set of angles q, check if there are any collisions with obstacles
-    def checkCollision(self, q, linkNo):
+    def checkCollision(self, q, linkNo, offset=0):
         positions = self.forwardKinematics(q) # Obtain joint position
 
         for i in range(len(positions) - 1):
@@ -149,15 +149,15 @@ class Manipulator2D():
             end = positions[i + 1]
             # Check if there is collision with obstacles
             for obstacle in self.obstacles:
-                if self.intersectsObstacle(start, end, obstacle):
+                if self.intersectsObstacle(start, end, obstacle, offset=offset):
                     return True
         
         return False
     
     # Check whether a given link intersects the obstacle at any point
-    def intersectsObstacle(self, start, end, obstacle):
+    def intersectsObstacle(self, start, end, obstacle, offset=0):
         center = np.array(obstacle.center)
-        radius = obstacle.radius
+        radius = obstacle.radius + offset
 
         # Convert points to numpy arrays for vector operations
         start = np.array(start)
@@ -374,18 +374,25 @@ class Manipulator2D():
         
         plt.show()
     
-robot = Manipulator2D()
-start = (0.0, 3.0)  # Some reachable point
-phi_start = np.pi/2  # Desired end-effector orientation
+robot = Manipulator2D(res=151)
+start = (0.0, -3.0)  # Some reachable point
+phi_start = -np.pi/2  # Desired end-effector orientation
 
-end = (3.0, 0.0)
-phi_end = 0.0
+end1 = (0.0, 3.0)
+phi_end1 = np.pi/2
 circ = Obstacle((1.5, 1.0), 0.5)
 robot.addObstacle(circ)
 circ = Obstacle((1.5, -0.5), 0.25)
 robot.addObstacle(circ)
-robot.generateCSpace()
+robot.generateCSpace(offset=0.075)
 
-paths = robot.motionPlanner(start, end, phi_start, phi_end, True)
+print("Calculating paths")
+end2 = (3.0, 0.0)
+phi_end2 = 0.0
 
-robot.animateRobot(paths)
+path1 = robot.motionPlanner(start, end1, phi_start, phi_end1, True)
+path2 = robot.motionPlanner(end1, end2, phi_end1, phi_end2, True)
+
+paths = path1 + path2
+
+robot.animateRobot(paths, interval=50, save=True)
