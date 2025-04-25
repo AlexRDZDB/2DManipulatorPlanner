@@ -6,7 +6,7 @@ This project combines concepts from kinematics, path planning and the discretiza
 
 Example Product:
 
-![Robot Arm Animation](assets/robot_motion.gif)
+![Robot Arm Animation](assets/simulation_example.gif)
 
 ## Project Objectives
 - Implement a forward kinematics module to compute the position of each joint given joint angles
