@@ -14,8 +14,8 @@ import matplotlib.pyplot as plt
 import matplotlib.animation as animation
 from matplotlib.animation import PillowWriter
 
-from obstacle import Obstacle
-from AStar import computeAStar
+from .obstacle import Obstacle
+from .AStar import computeAStar
 
 class Manipulator2D():
     
@@ -94,7 +94,6 @@ class Manipulator2D():
         
         # Plot obstacles
         for obstacle in self.obstacles:
-            print(f"Origin: {obstacle.center}")
             origin = obstacle.center
             radius = obstacle.radius
             obstacle_plot = plt.Circle(origin, radius, color ='red', fill=True) # Plots the Circle
@@ -125,17 +124,20 @@ class Manipulator2D():
 
             if self.checkCollision(q, 1, offset=offset):
                 self.cspace[i,:,:] = 1
+                continue
             
             else:
                 for j, q2 in enumerate(self.discretizedAngles):
                     q = [q1, q2, 0]
                     if self.checkCollision(q, 2, offset=offset):
                         self.cspace[i,j,:] = 1
+                        continue
                     else:
                         for k, q3 in enumerate(self.discretizedAngles):
                             q = [q1,q2,q3]
                             if self.checkCollision(q, 3, offset=offset):
                                 self.cspace[i,j,k] = 1
+                                continue
     
     # Given a set of angles q, check if there are any collisions with obstacles
     def checkCollision(self, q, linkNo, offset=0):
@@ -223,7 +225,7 @@ class Manipulator2D():
         ax.set_xlabel("Joint 1")
         ax.set_ylabel("Joint 2")
         ax.set_zlabel("Joint 3")
-
+        ax.set_title(f"{self.name} Joint Space Configuration")
         plt.tight_layout()
         plt.show()
 
@@ -299,7 +301,7 @@ class Manipulator2D():
         return valid_paths
     
     # Animate a motion
-    def animateRobot(self, path, interval=250, save=False):
+    def animateRobot(self, path, interval=250, save=False, name="robot_motion.gif"):
         fig, ax = plt.subplots()
 
         start_point = path[0]
@@ -370,29 +372,7 @@ class Manipulator2D():
             )
         if save:
             writer = PillowWriter(fps=1000 // interval)
-            anim.save("robot_motion.gif", writer=writer)
+            anim.save(name, writer=writer)
         
         plt.show()
     
-robot = Manipulator2D(res=151)
-start = (0.0, -3.0)  # Some reachable point
-phi_start = -np.pi/2  # Desired end-effector orientation
-
-end1 = (0.0, 3.0)
-phi_end1 = np.pi/2
-circ = Obstacle((1.5, 1.0), 0.5)
-robot.addObstacle(circ)
-circ = Obstacle((1.5, -0.5), 0.25)
-robot.addObstacle(circ)
-robot.generateCSpace(offset=0.075)
-
-print("Calculating paths")
-end2 = (3.0, 0.0)
-phi_end2 = 0.0
-
-path1 = robot.motionPlanner(start, end1, phi_start, phi_end1, True)
-path2 = robot.motionPlanner(end1, end2, phi_end1, phi_end2, True)
-
-paths = path1 + path2
-
-robot.animateRobot(paths, interval=50, save=True)
